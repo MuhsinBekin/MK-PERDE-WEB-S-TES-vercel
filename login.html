@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Giriş - MK Perde</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width:680px;margin:40px auto;">
+    <a href="index.html">← Anasayfaya don</a>
+    <h1>Giriş Yap</h1>
+
+    <section class="card" style="margin-top:16px;">
+      <h3>Admin Giriş</h3>
+      <form id="adminLoginPage">
+        <input id="admin_username" placeholder="Kullanici adi" required />
+        <input id="admin_password" type="password" placeholder="Parola" required />
+        <button class="btn" type="submit">Admin Giris</button>
+      </form>
+        <div id="adminLoginError" style="color:#b00;margin-top:10px;display:none;"></div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // Prefill admin username if query present
+    if (location.search.indexOf('admin=1') !== -1) {
+      const a = document.getElementById('admin_username');
+      if (a) a.value = 'MK PERDE';
+    }
+    
+    // wire existing handlers to these forms (script.js attaches to ids loginForm and adminLogin)
+    // duplicate ids used in index.html, script.js uses these ids - ensure handlers attach
+    // If script.js didn't attach (due to different ids), forward submits
+    document.getElementById('adminLoginPage').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const username = document.getElementById('admin_username').value;
+      const password = document.getElementById('admin_password').value;
+      fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password})})
+        .then(r=>r.json()).then(res=>{
+            const errEl = document.getElementById('adminLoginError');
+            if (res.token && res.role==='admin') {
+              if (errEl) { errEl.style.display='none'; errEl.textContent=''; }
+              localStorage.setItem('mk_token', res.token);
+              localStorage.setItem('mk_user', JSON.stringify({username: res.username, name: res.name}));
+              alert('Admin girişi başarılı');
+              location.href='admin_dashboard.html';
+            } else {
+              // Show the requested on-screen message for failed admin login
+              if (errEl) { errEl.style.display='block'; errEl.textContent = 'HATALI GİRİŞ LÜTFEN ANASAYFAYA DÖNÜN'; }
+              else alert(res.error||'Admin girisi başarısız');
+            }
+        });
+    });
+  </script>
+</body>
+</html>

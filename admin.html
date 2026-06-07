@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin - Mesajlar</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width:900px;margin:24px auto;">
+    <a href="index.html">← Anasayfaya don</a>
+    <h1>Admin - Mesajlar</h1>
+    <div>
+      <button id="adminRefresh" class="btn">Yenile</button>
+      <button id="adminLogout" class="btn">Cikis</button>
+    </div>
+    <div id="allMessages" style="margin-top:12px;"></div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    document.getElementById('adminRefresh').addEventListener('click', ()=> loadAllMessages());
+    document.getElementById('adminLogout').addEventListener('click', ()=>{ localStorage.removeItem('mk_token'); alert('Cikis yapildi'); location.href='index.html'; });
+
+    // On load, try to load messages; if unauthorized, redirect to login
+    (async ()=>{
+      const token = localStorage.getItem('mk_token');
+      if (!token) return location.href='login.html?admin=1';
+      const res = await fetch('/api/messages', {headers:{'x-auth-token':token}});
+      if (res.status===401 || res.status===403) return location.href='login.html?admin=1';
+      loadAllMessages();
+    })();
+  </script>
+</body>
+</html>

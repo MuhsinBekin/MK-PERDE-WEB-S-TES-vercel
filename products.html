@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ürünler - MK Perde</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width:1100px;margin:36px auto;">
+    <a href="index.html">← Anasayfaya don</a>
+    <h1>Ürünlerimiz</h1>
+    <p>Farklı perde çeşitlerimizi seçerek örnek görselleri inceleyebilirsiniz.</p>
+
+    <section class="card">
+      <div id="products" class="products-grid" style="margin:12px 0;"></div>
+    </section>
+  </div>
+
+  <div id="galleryModal" class="gallery-modal">
+    <div class="sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 id="galleryTitle">Galeri</h3>
+        <button id="closeGallery" class="btn">Kapat</button>
+      </div>
+      <div id="imageGrid" class="image-grid"></div>
+      <div id="galleryEmpty" style="display:none;padding:12px 0;color:var(--muted);">Bu ürüne ait görsel bulunamadı.</div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    async function loadProducts() {
+      const res = await fetch('/api/products');
+      const rows = await res.json();
+      const cont = document.getElementById('products');
+      cont.innerHTML = '';
+      rows.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'product-card';
+        el.innerHTML = `<img src="${p.thumbnail || 'https://via.placeholder.com/600x400?text='+encodeURIComponent(p.name)}" onerror="this.src='https://via.placeholder.com/600x400?text=No+Image'" />
+          <div class='pbody'>
+            <h4 class='product-title' data-id='${p.id}' style='cursor:pointer;'>${p.name}</h4>
+            <button class='btn view-btn' data-id='${p.id}'>Görüntüle</button>
+          </div>`;
+        cont.appendChild(el);
+      });
+      const openGallery = async (id) => {
+        const product = rows.find(x => String(x.id) === String(id));
+        const data = await fetch(`/api/products/${id}/images`).then(r => r.json());
+        const grid = document.getElementById('imageGrid');
+        const empty = document.getElementById('galleryEmpty');
+        document.getElementById('galleryTitle').textContent = product ? product.name : 'Galeri';
+        grid.innerHTML = '';
+        if (!data.length) {
+          empty.style.display = 'block';
+        } else {
+          empty.style.display = 'none';
+          data.forEach(i => {
+            const wrap = document.createElement('figure');
+            wrap.style.margin = '0';
+            wrap.style.display = 'grid';
+            wrap.style.gap = '8px';
+            const im = document.createElement('img');
+            im.src = i.url;
+            im.alt = product ? product.name : 'Ürün görseli';
+            const cap = document.createElement('figcaption');
+            cap.textContent = `Görsel ${grid.children.length + 1}`;
+            cap.style.color = 'var(--muted)';
+            cap.style.fontSize = '0.9rem';
+            wrap.appendChild(im);
+            wrap.appendChild(cap);
+            grid.appendChild(wrap);
+          });
+        }
+        document.getElementById('galleryModal').style.display = 'flex';
+      };
+
+      document.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', (e) => {
+        openGallery(b.getAttribute('data-id'));
+      }));
+      document.querySelectorAll('.product-title').forEach(t => t.addEventListener('click', () => {
+        openGallery(t.getAttribute('data-id'));
+      }));
+    }
+
+    document.getElementById('closeGallery').addEventListener('click', ()=>{ document.getElementById('galleryModal').style.display='none'; });
+
+    loadProducts();
+  </script>
+</body>
+</html>
