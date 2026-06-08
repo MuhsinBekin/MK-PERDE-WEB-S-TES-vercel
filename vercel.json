@@ -1,6 +1,21 @@
 {
   "version": 2,
-  "routes": [
-    { "src": "/(.*)", "dest": "server.js" }
+  "rewrites": [
+    {
+      "source": "/styles.css",
+      "destination": "/styles.css"
+    },
+    {
+      "source": "/script.js",
+      "destination": "/script.js"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/api/server.js"
+    }
   ]
 }
