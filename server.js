@@ -4,10 +4,10 @@ const bodyParser = require('body-parser');
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const multer = require('multer');
+var path = require('path');
+var fs = require('fs');
+var os = require('os');
+var multer = require('multer');
 
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION', err);
