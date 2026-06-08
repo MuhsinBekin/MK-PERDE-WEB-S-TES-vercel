@@ -52,21 +52,6 @@ db.prepare(`CREATE TABLE IF NOT EXISTS messages (
 )`).run();
 
 // Products and images
-db.prepare(`CREATE TABLE IF NOT EXISTS products (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT UNIQUE,
-  slug TEXT UNIQUE,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)`).run();
-
-db.prepare(`CREATE TABLE IF NOT EXISTS product_images (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  product_id INTEGER,
-  filename TEXT,
-  caption TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)`).run();
-
 try { db.prepare('ALTER TABLE messages ADD COLUMN sender_name TEXT').run(); } catch (e) { }
 try { db.prepare('ALTER TABLE messages ADD COLUMN sender_phone TEXT').run(); } catch (e) { }
 
@@ -142,6 +127,7 @@ app.post('/api/messages/public', (req, res) => {
     .run(null, content, is_quote ? 1 : 0, name || '', phone || '');
   res.json({ id: info.lastInsertRowid });
 });
+
 app.post('/api/messages/delete', authMiddleware, (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'admins only' });
   const { ids } = req.body;
@@ -171,119 +157,56 @@ app.post('/api/messages/:id/reply', authMiddleware, (req, res) => {
     .run(reply, req.user.id, id);
   res.json({ updated: info.changes });
 });
+
 const uploadsDir = path.join(__dirname, 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const pid = req.params.id || 'misc';
-    const dir = path.join(uploadsDir, 'products', String(pid));
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, Date.now() + '-' + safe);
+
+const productsManifestPath = path.join(__dirname, 'products.json');
+function loadProductsManifest() {
+  try {
+    const raw = fs.readFileSync(productsManifestPath, 'utf8');
+    const rows = JSON.parse(raw);
+    if (!Array.isArray(rows)) return [];
+    return rows.filter(p => p && p.id && p.name).map(p => ({ id: Number(p.id), name: String(p.name), slug: p.slug ? String(p.slug) : String(p.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') }));
+  } catch (e) {
+    return [];
   }
-});
-const upload = multer({ storage });
-console.log('Registering products API routes');
+}
+
+function productThumbnail(id) {
+  const dir = path.join(uploadsDir, 'products', String(id));
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isFile());
+  if (!files.length) return null;
+  return `/uploads/products/${id}/${encodeURIComponent(files[0])}`;
+}
+
+function getProductImages(id) {
+  const dir = path.join(uploadsDir, 'products', String(id));
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter(f => fs.statSync(path.join(dir, f)).isFile())
+    .sort()
+    .map(f => ({ id: `${id}-${f}`, url: `/uploads/products/${id}/${encodeURIComponent(f)}`, caption: f }));
+}
+
 app.get('/api/products', (req, res) => {
-  console.log('HANDLER /api/products called');
-  const rows = db.prepare(`SELECT p.*, pi.filename as thumbnail FROM products p
-    LEFT JOIN product_images pi ON pi.product_id = p.id
-    GROUP BY p.id ORDER BY p.created_at DESC`).all();
-  const out = rows.map(r => ({ id: r.id, name: r.name, slug: r.slug, thumbnail: r.thumbnail ? `/uploads/products/${r.id}/${r.thumbnail}` : null }));
+  const products = loadProductsManifest();
+  const out = products.map(p => ({ id: p.id, name: p.name, slug: p.slug, thumbnail: productThumbnail(p.id) }));
   res.json(out);
 });
+
+app.get('/api/products/:id/images', (req, res) => {
+  const id = Number(req.params.id);
+  res.json(getProductImages(id));
+});
+
 app.use((req, res, next) => {
   console.log('FALLBACK 404 for', req.method, req.path);
   next();
 });
 app.get('/__test_products', (req, res) => res.json({ ok: 'test' }));
-
-app.post('/api/products', authMiddleware, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'admins only' });
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'name required' });
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  try {
-    const info = db.prepare('INSERT INTO products (name, slug) VALUES (?,?)').run(name, slug);
-    res.json({ id: info.lastInsertRowid, name, slug });
-  } catch (e) {
-    res.status(500).json({ error: 'create_failed' });
-  }
-});
-
-app.post('/api/products/:id/images', authMiddleware, upload.array('images', 30), (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'admins only' });
-  const id = Number(req.params.id);
-  if (!req.files || !req.files.length) return res.status(400).json({ error: 'no files' });
-  const stmt = db.prepare('INSERT INTO product_images (product_id, filename, caption) VALUES (?,?,?)');
-  const saved = [];
-  for (const f of req.files) {
-    const fn = path.basename(f.filename);
-    stmt.run(id, fn, f.originalname || '');
-    saved.push(fn);
-  }
-  res.json({ saved: saved.length });
-});
-
-app.get('/api/products/:id/images', (req, res) => {
-  const id = Number(req.params.id);
-  const rows = db.prepare('SELECT id, filename, caption FROM product_images WHERE product_id = ? ORDER BY created_at DESC').all(id);
-  const out = rows.map(r => ({ id: r.id, url: `/uploads/products/${id}/${r.filename}`, caption: r.caption }));
-  res.json(out);
-});
-
-// Delete a product/category and all its images (admin only)
-app.delete('/api/products/:id', authMiddleware, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'admins only' });
-  const id = Number(req.params.id);
-  const images = db.prepare('SELECT id, filename FROM product_images WHERE product_id = ?').all(id);
-  for (const img of images) {
-    const filePath = path.join(uploadsDir, 'products', String(id), img.filename);
-    try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    } catch (e) {
-      console.error('unlink failed', filePath, e && e.message);
-    }
-  }
-  db.prepare('DELETE FROM product_images WHERE product_id = ?').run(id);
-  const info = db.prepare('DELETE FROM products WHERE id = ?').run(id);
-  res.json({ deleted: info.changes });
-});
-
-// Delete a product image by image id (admin only)
-app.delete('/api/product-images/:id', authMiddleware, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'admins only' });
-  const imgId = Number(req.params.id);
-  const row = db.prepare('SELECT id, product_id, filename FROM product_images WHERE id = ?').get(imgId);
-  if (!row) return res.status(404).json({ error: 'not_found' });
-  const filePath = path.join(uploadsDir, 'products', String(row.product_id), row.filename);
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (e) {
-    console.error('unlink failed', filePath, e && e.message);
-  }
-  const info = db.prepare('DELETE FROM product_images WHERE id = ?').run(imgId);
-  res.json({ deleted: info.changes });
-});
-
-// Update product (e.g., change or clear name) (admin only)
-app.patch('/api/products/:id', authMiddleware, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'admins only' });
-  const id = Number(req.params.id);
-  const { name } = req.body;
-  if (typeof name === 'undefined') return res.status(400).json({ error: 'name required' });
-  const slug = name ? String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
-  try {
-    const info = db.prepare('UPDATE products SET name = ?, slug = ? WHERE id = ?').run(name, slug, id);
-    res.json({ updated: info.changes });
-  } catch (e) {
-    res.status(500).json({ error: 'update_failed' });
-  }
-});
 
 // Debug: list registered routes
 app.get('/_routes', (req, res) => {

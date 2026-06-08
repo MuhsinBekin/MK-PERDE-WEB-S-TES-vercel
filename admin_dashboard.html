@@ -21,21 +21,6 @@
       <div id="allMessages"></div>
     </section>
 
-    <section class="card" style="margin-top:16px;">
-      <h2>Ürün Yönetimi</h2>
-      <div class="uploader-controls" style="flex-wrap:wrap;">
-        <input id="newProductName" placeholder="Yeni ürün adı (örn: stor)" />
-        <input id="newProductFiles" type="file" multiple />
-        <button id="createProduct" class="btn small">Ürün Ekle ve Görselleri Yükle</button>
-      </div>
-      <div id="productList" style="margin-top:12px;"></div>
-      <div id="uploaderArea" style="margin-top:12px;display:none;">
-        <h4 id="uploaderTitle">Yükle</h4>
-        <input id="imageFiles" type="file" multiple />
-        <button id="uploadImages" class="btn small">Yükle</button>
-        <div id="productImagesList" style="margin-top:12px;"></div>
-      </div>
-    </section>
   </div>
 
   <script src="script.js"></script>
@@ -56,124 +41,7 @@
 
     // Load messages on open
     loadAllMessages();
-    // Product management
-    async function loadProductsAdmin() {
-      const res = await fetch('/api/products');
-      const rows = await res.json();
-      const list = document.getElementById('productList'); list.innerHTML='';
-      rows.forEach(p => {
-        const d = document.createElement('div');
-        d.style.display='flex';
-        d.style.gap='8px';
-        d.style.flexWrap='wrap';
-        d.style.alignItems='center';
-        d.innerHTML = `
-          <strong>${p.name}</strong>
-          <button class='btn small open-uploader' data-id='${p.id}'>Resim Yükle</button>
-          <button class='btn small delete-product' data-id='${p.id}'>Ürünü Sil</button>
-        `;
-        list.appendChild(d);
-      });
-      document.querySelectorAll('.open-uploader').forEach(b=>b.addEventListener('click', (e)=>{
-          const id = b.getAttribute('data-id');
-          const area = document.getElementById('uploaderArea');
-          area.style.display='block';
-          document.getElementById('uploaderTitle').textContent = 'Ürün ID: '+id;
-          area.setAttribute('data-id', id);
-          // load existing images for this product
-          loadProductImages(id);
-      }));
 
-      
-      // Delete product (remove product and its images)
-      document.querySelectorAll('.delete-product').forEach(btn => btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-id');
-        if (!confirm('Bu ürünü ve tüm görsellerini silmek istediğinize emin misiniz?')) return;
-        const token = localStorage.getItem('mk_token');
-        const res = await fetch(`/api/products/${id}`, { method: 'DELETE', headers: {'x-auth-token': token} });
-        const j = await res.json();
-        if (res.ok && j.deleted) {
-          if (document.getElementById('uploaderArea').getAttribute('data-id') === String(id)) {
-            document.getElementById('uploaderArea').style.display = 'none';
-            document.getElementById('productImagesList').innerHTML = '';
-          }
-          loadProductsAdmin();
-        } else {
-          alert(j.error || 'Silme hatası');
-        }
-      }));
-
-      
-    }
-
-    document.getElementById('createProduct').addEventListener('click', async ()=>{
-      const name = document.getElementById('newProductName').value.trim(); if(!name) return alert('Ad girin');
-      const filesInput = document.getElementById('newProductFiles');
-      const token = localStorage.getItem('mk_token');
-      // Create product first
-      const res = await fetch('/api/products', { method:'POST', headers: Object.assign({'Content-Type':'application/json'},{'x-auth-token': token}), body: JSON.stringify({ name }) });
-      const j = await res.json(); if (!j.id) return alert(j.error||'Hata');
-      const pid = j.id;
-      // If files selected, upload them
-      if (filesInput && filesInput.files && filesInput.files.length) {
-        const fd = new FormData(); for (const f of filesInput.files) fd.append('images', f);
-        const up = await fetch(`/api/products/${pid}/images`, { method: 'POST', headers: {'x-auth-token': token}, body: fd });
-        const uj = await up.json(); if (uj.saved) { alert('Ürün ve '+uj.saved+' görsel kaydedildi'); }
-        else { alert('Ürün oluşturuldu, fakat görseller kaydedilemedi'); }
-      } else {
-        alert('Ürün oluşturuldu');
-      }
-      document.getElementById('newProductName').value=''; if (filesInput) filesInput.value=''; loadProductsAdmin();
-    });
-
-    document.getElementById('uploadImages').addEventListener('click', async ()=>{
-      const area = document.getElementById('uploaderArea'); const id = area.getAttribute('data-id'); if(!id) return alert('Önce ürün seçin');
-      const files = document.getElementById('imageFiles').files; if(!files.length) return alert('Dosya seçin');
-      const fd = new FormData(); for(const f of files) fd.append('images', f);
-      const token = localStorage.getItem('mk_token');
-      const res = await fetch(`/api/products/${id}/images`, { method:'POST', headers: {'x-auth-token': token}, body: fd });
-      const j = await res.json(); if (j.saved) { alert(j.saved+' resim kaydedildi'); document.getElementById('imageFiles').value=''; loadProductsAdmin(); } else alert(j.error||'Hata');
-    });
-
-    async function loadProductImages(productId) {
-      const listEl = document.getElementById('productImagesList');
-      listEl.innerHTML = '<div>Yükleniyor...</div>';
-      try {
-        const res = await fetch(`/api/products/${productId}/images`);
-        if (!res.ok) { listEl.innerHTML = '<div>Görseller alınamadı</div>'; return; }
-        const imgs = await res.json();
-        if (!imgs.length) { listEl.innerHTML = '<div>Bu ürüne ait görsel yok.</div>'; return; }
-        const grid = document.createElement('div'); grid.className = 'image-grid';
-        imgs.forEach((i, index) => {
-          const wrap = document.createElement('div');
-          const im = document.createElement('img'); im.src = i.url; im.alt = i.caption || '';
-          const label = document.createElement('div');
-          label.textContent = `Görsel ${index + 1}`;
-          label.style.marginTop = '6px';
-          label.style.color = 'var(--muted)';
-          label.style.fontSize = '0.9rem';
-          const del = document.createElement('button'); del.className = 'btn'; del.style.marginTop='6px'; del.textContent = 'Sil';
-          del.addEventListener('click', async ()=>{
-            if (!confirm('Bu görseli silmek istediğinize emin misiniz?')) return;
-            const token = localStorage.getItem('mk_token');
-            const dres = await fetch(`/api/product-images/${i.id}`, { method: 'DELETE', headers: {'x-auth-token': token} });
-            const dj = await dres.json();
-            if (dres.ok && dj.deleted) {
-              loadProductImages(productId);
-            } else {
-              alert(dj.error||'Silme hatasi');
-            }
-          });
-          wrap.appendChild(im); wrap.appendChild(del);
-          wrap.appendChild(label);
-          grid.appendChild(wrap);
-        });
-        listEl.innerHTML = '';
-        listEl.appendChild(grid);
-      } catch (e) { listEl.innerHTML = '<div>Hata</div>'; }
-    }
-
-    loadProductsAdmin();
   </script>
 </body>
 </html>

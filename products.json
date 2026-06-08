@@ -1,0 +1,7 @@
+[
+  { "id": 2, "name": "Stor Perde", "slug": "stor-perde" },
+  { "id": 3, "name": "Tül Perde", "slug": "tul-perde" },
+  { "id": 5, "name": "Fon Perde", "slug": "fon-perde" },
+  { "id": 6, "name": "Zebra Perde", "slug": "zebra-perde" },
+  { "id": 7, "name": "Jaluzi Perde", "slug": "jaluzi-perde" }
+]
