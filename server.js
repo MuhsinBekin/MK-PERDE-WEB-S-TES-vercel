@@ -21,6 +21,14 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// Kök dizindeki HTML, CSS ve JS dosyalarını Vercel'in okuyabilmesi için statik olarak açıyoruz
+app.use(express.static(__dirname));
+
+// Biri siteye girdiğinde doğrudan index.html dosyasını karşısına çıkarıyoruz
+const path = require('path');
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 // Log incoming requests for debugging
 app.use((req, res, next) => { console.log('REQ', req.method, req.path); next(); });
 app.use((req, res, next) => {
