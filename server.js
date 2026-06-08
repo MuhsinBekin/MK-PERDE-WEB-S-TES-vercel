@@ -25,10 +25,10 @@ app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
 // Biri siteye girdiğinde doğrudan index.html dosyasını karşısına çıkarıyoruz
-const path = require('path');
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
+
 // Log incoming requests for debugging
 app.use((req, res, next) => { console.log('REQ', req.method, req.path); next(); });
 app.use((req, res, next) => {
@@ -260,47 +260,10 @@ app.get('/_routes', (req, res) => {
 // Serve static files (the frontend)
 app.use(express.static(path.join(__dirname)));
 
+// Tek ve temizlenmiş Port Dinleme Kurgusu (Vercel ile tam uyumlu)
 const PORT = process.env.PORT || 3000;
-console.log('SERVER START - build: disable-register v2');
-app.listen(PORT, '0.0.0.0', () => {
-  const nets = os.networkInterfaces();
-  const addresses = [];
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        addresses.push(net.address);
-      }
-    }
-  }
-  console.log(`Server listening on port ${PORT} (bound to 0.0.0.0)`);
-  if (addresses.length) {
-    addresses.forEach(a => console.log(` - http://${a}:${PORT}`));
-  } else {
-    console.log(' - no non-internal IPv4 addresses detected');
-  }
-  try { console.log('routes count', app._router && app._router.stack ? app._router.stack.length : 0); } catch(e) { console.log('routes inspect failed'); }
-  console.log('process pid', process.pid);
+app.listen(PORT, () => {
+  console.log(`Sunucu ${PORT} portunda başarıyla çalışıyor.`);
 });
-
-if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
-    const nets = os.networkInterfaces();
-    const addresses = [];
-    for (const name of Object.keys(nets)) {
-      for (const net of nets[name]) {
-        if (net.family === 'IPv4' && !net.internal) {
-          addresses.push(net.address);
-        }
-      }
-    }
-    console.log(`Server listening on port ${PORT} (bound to 0.0.0.0)`);
-    if (addresses.length) {
-      addresses.forEach(a => console.log(` - http://${a}:${PORT}`));
-    } else {
-      console.log(' - no non-internal IPv4 addresses detected');
-    }
-  });
-}
 
 module.exports = app;
