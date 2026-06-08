@@ -9,6 +9,14 @@ const fs = require('fs');
 const os = require('os');
 const multer = require('multer');
 
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED REJECTION', reason);
+});
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -22,7 +30,27 @@ app.use((req, res, next) => {
   next();
 });
 
-const db = new Database(path.join(__dirname, 'data.db'));
+const localDbPath = path.join(__dirname, 'data.db');
+const vercelDbPath = path.join(os.tmpdir(), 'data.db');
+const dbPath = process.env.VERCEL ? vercelDbPath : localDbPath;
+
+if (process.env.VERCEL && !fs.existsSync(vercelDbPath)) {
+  try {
+    if (fs.existsSync(localDbPath)) {
+      fs.copyFileSync(localDbPath, vercelDbPath);
+    }
+  } catch (e) {
+    console.warn('Could not copy local SQLite database to /tmp; creating new DB in Vercel tmp folder.');
+  }
+}
+
+let db;
+try {
+  db = new Database(dbPath);
+} catch (e) {
+  console.error('Failed to open SQLite database', e);
+  process.exit(1);
+}
 
 db.prepare(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -245,3 +273,26 @@ app.listen(PORT, '0.0.0.0', () => {
   try { console.log('routes count', app._router && app._router.stack ? app._router.stack.length : 0); } catch(e) { console.log('routes inspect failed'); }
   console.log('process pid', process.pid);
 });
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, '0.0.0.0', () => {
+    const nets = os.networkInterfaces();
+    const addresses = [];
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          addresses.push(net.address);
+        }
+      }
+    }
+    console.log(`Server listening on port ${PORT} (bound to 0.0.0.0)`);
+    if (addresses.length) {
+      addresses.forEach(a => console.log(` - http://${a}:${PORT}`));
+    } else {
+      console.log(' - no non-internal IPv4 addresses detected');
+    }
+  });
+}
+
+module.exports = app;
