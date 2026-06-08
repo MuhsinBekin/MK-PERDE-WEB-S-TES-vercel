@@ -7,8 +7,9 @@
   <meta name="description" content="MK Perde - Ev, ofis ve kurumsal mekanlar icin ozel tasarim perde cozumleri." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght=500;600;700&family=Manrope:wght=400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Vercel önbelleğini kırmak ve güncel tasarımı çekmek için styles.css çağrısı güncellendi -->
+  <link rel="stylesheet" href="styles.css?v=1.0" />
 </head>
 <body>
   <div class="site-bg" aria-hidden="true"></div>
@@ -29,8 +30,7 @@
       </nav>
     </div>
   </header>
-  <!-- Portal moved to top for quick access (moved to separate login page) -->
-  <!-- portal removed (moved to top) -->
+
   <main>
     <section class="hero">
       <div class="container hero-grid">
@@ -90,7 +90,7 @@
         <article class="feature-tile">
           <span>03</span>
           <h2>Sonucu guclendiren temiz montaj ve teslim</h2>
-          <p>Olcu, dikim, uygulama ve teslim surecini tek noktadan yonetiriz.</p>
+          <p>Olcu, dikim, application ve teslim surecini tek noktadan yonetiriz.</p>
         </article>
       </div>
     </section>
@@ -101,7 +101,6 @@
           <p class="kicker">URUNLER</p>
           <h2>Guncel Ihtiyaclara Uygun Sistemler</h2>
         </div>
-
         <div id="productCards" class="cards"></div>
       </div>
     </section>
@@ -155,7 +154,7 @@
           </article>
           <article class="model-item">
             <img src="assets/gorsel-2.jpg" alt="Klasik perde" />
-            <div class="overlay"><h3>Klasik Dokunu</h3></div>
+            <div class="overlay"><h3>Klasik Dokunus</h3></div>
           </article>
         </div>
       </div>
@@ -186,32 +185,30 @@
           <input id="phone" type="tel" placeholder="05xx xxx xx xx" required />
 
           <label for="message">Notunuz</label>
-          <textarea id="message" rows="4" placeholder="Mekan ve ihtiyacinizi kisaca yazin"></textarea>
+          <textarea id="message" rows="4" placeholder="Mekan and ihtiyacinizi kisaca yazin"></textarea>
 
           <button class="btn btn-primary" type="submit">Bilgi Talebi Gonder</button>
         </form>
       </div>
     </section>
-
-    
   </main>
     
   <footer class="footer">
     <div class="container footer-inner">
-      <p>© 2026 MK Perde. Tum haklari saklidir.</p>
+      <p>©️ 2026 MK Perde. Tum haklari saklidir.</p>
       <a href="#top">Yukari Don</a>
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=1.0"></script>
   <script>
-    // Load product categories dynamically
     (async function(){
       try {
         const res = await fetch('/api/products');
         if (!res.ok) return;
         const rows = await res.json();
         const cont = document.getElementById('productCards');
+        if (!cont) return;
         cont.innerHTML = '';
         rows.forEach(p => {
           const art = document.createElement('article');
